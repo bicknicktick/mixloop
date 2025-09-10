@@ -12,7 +12,7 @@
 
 ---
 
-### 🚀 **Developed by [BITZY.ID](https://bitzy.id)**
+### 🚀 **Developed by [BITZY.ID](https://e.bitzy.id)**
 
 <img src="https://img.shields.io/github/stars/bicknicktick/mixloop?style=social" alt="GitHub stars">
 <img src="https://img.shields.io/github/forks/bicknicktick/mixloop?style=social" alt="GitHub forks">
@@ -256,7 +256,7 @@ Gunakan file audio di folder `test_audio/` untuk testing:
 
 <div align="center">
 
-### 💝 **Made with ❤️ by [BITZY.ID](https://bitzy.id)**
+### 💝 **Made with ❤️ by [BITZY.ID](https://e.bitzy.id)**
 
 [![Website](https://img.shields.io/badge/🌐_Website-bitzy.id-4285F4?style=for-the-badge)](https://bitzy.id)
 [![GitHub](https://img.shields.io/badge/🐙_GitHub-bicknicktick-181717?style=for-the-badge)](https://github.com/bicknicktick)
