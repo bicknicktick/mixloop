@@ -1,0 +1,32 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+mixloop
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Output directories
+output/
+temp/
+
+# Test files
+test_*.go
+*_test.go
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
