@@ -9,6 +9,7 @@ import (
 	"github.com/rs/cors"
 
 	"mixloop/handlers"
+	"mixloop/utils"
 )
 
 func main() {
@@ -19,14 +20,19 @@ func main() {
 	r := mux.NewRouter()
 
 	// Routes
-	r.HandleFunc("/mix", handlers.MixAudioHandler).Methods("POST")
-	r.HandleFunc("/health", handlers.HealthCheckHandler).Methods("GET")
+	r.HandleFunc("/api/mix", handlers.MixAudioHandler).Methods("POST")
+	r.HandleFunc("/api/progress", utils.ProgressHandler).Methods("GET")
+	r.HandleFunc("/ws/progress", utils.WebSocketHandler)
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "static/index.html")
+	})
 
-	// CORS
+	// CORS - Allow all origins for web/VPS deployment
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:3000"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"*"},
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: false,
 	})
 
 	handler := c.Handler(r)

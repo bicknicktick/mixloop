@@ -16,6 +16,7 @@ type AudioSequencer struct {
 	LoopCount         int
 	TempDir           string
 	Enhance           bool
+	DolbyStereo       bool   // Dolby Stereo simulation
 	OutputFormat      string // "mp3" or "wav"
 	Quality           string // "320k" for mp3, "pcm_s24le" for wav
 }
@@ -27,6 +28,11 @@ func NewAudioSequencer(inputFiles []string, outputFile string, crossfadeDuration
 
 // NewAudioSequencerWithOptions creates a new audio sequencer with custom options
 func NewAudioSequencerWithOptions(inputFiles []string, outputFile string, crossfadeDuration float64, loopCount int, tempDir string, enhance bool, format string) *AudioSequencer {
+	return NewAudioSequencerWithStereoOptions(inputFiles, outputFile, crossfadeDuration, loopCount, tempDir, enhance, false, format)
+}
+
+// NewAudioSequencerWithStereoOptions creates a new audio sequencer with stereo options
+func NewAudioSequencerWithStereoOptions(inputFiles []string, outputFile string, crossfadeDuration float64, loopCount int, tempDir string, enhance bool, dolbyStereo bool, format string) *AudioSequencer {
 	// Determine quality based on format
 	quality := "320k"
 	if format == "wav" {
@@ -40,6 +46,7 @@ func NewAudioSequencerWithOptions(inputFiles []string, outputFile string, crossf
 		LoopCount:         loopCount,
 		TempDir:           tempDir,
 		Enhance:           enhance,
+		DolbyStereo:       dolbyStereo,
 		OutputFormat:      format,
 		Quality:           quality,
 	}
@@ -47,11 +54,33 @@ func NewAudioSequencerWithOptions(inputFiles []string, outputFile string, crossf
 
 // Process creates a seamless sequence with crossfades and loops
 func (as *AudioSequencer) Process() error {
+	return as.ProcessWithProgress("", GlobalProgressTracker)
+}
+
+// ProcessWithProgress creates a seamless sequence with progress tracking
+func (as *AudioSequencer) ProcessWithProgress(sessionID string, tracker *ProgressTracker) error {
 	if len(as.InputFiles) == 0 {
 		return fmt.Errorf("no input files provided")
 	}
 
-	// Step 1: Create sequence of all tracks with crossfades between them
+	totalSteps := 4
+	if as.LoopCount > 1 {
+		totalSteps = 5
+	}
+	if as.Enhance {
+		totalSteps++
+	}
+
+	// Step 1: Validation
+	if tracker != nil && sessionID != "" {
+		tracker.UpdateProgress(sessionID, "validation", "Validating audio files...", 0, "", len(as.InputFiles))
+	}
+
+	// Step 2: Create sequence of all tracks with crossfades between them
+	if tracker != nil && sessionID != "" {
+		tracker.UpdateProgress(sessionID, "sequencing", "Creating audio sequence...", 20, "", len(as.InputFiles))
+	}
+	
 	sequenceFile := filepath.Join(as.TempDir, "sequence.mp3")
 	err := as.createSequenceWithCrossfades(sequenceFile)
 	if err != nil {
@@ -59,32 +88,45 @@ func (as *AudioSequencer) Process() error {
 	}
 	defer os.Remove(sequenceFile)
 
-	// Step 2: Apply looping with crossfade at boundaries
+	// Step 3: Apply looping with crossfade at boundaries
 	var finalFile string
 	if as.LoopCount > 1 {
+		if tracker != nil && sessionID != "" {
+			tracker.UpdateProgress(sessionID, "looping", "Creating looped sequence...", 50, "", as.LoopCount)
+		}
 		err = as.createLoopedSequence(sequenceFile)
 		if err != nil {
 			return fmt.Errorf("failed to create looped sequence: %v", err)
 		}
-		finalFile = as.OutputFile
+		finalFile = filepath.Join(as.TempDir, "looped.mp3")
 	} else {
-		// Just copy the sequence if no looping needed
 		finalFile = sequenceFile
 	}
 
-	// Step 3: Apply enhancement if enabled
+	// Step 4: Apply enhancement if requested
 	if as.Enhance {
+		if tracker != nil && sessionID != "" {
+			tracker.UpdateProgress(sessionID, "enhancing", "Applying audio enhancement...", 75, "", 0)
+		}
 		enhancer := NewAudioEnhancer(as.TempDir)
 		err = enhancer.ApplyEnhancement(finalFile, as.OutputFile, as.OutputFormat, as.Quality)
 		if err != nil {
-			return fmt.Errorf("failed to apply enhancement: %v", err)
+			return fmt.Errorf("failed to enhance audio: %v", err)
 		}
-	} else if finalFile != as.OutputFile {
-		// Copy without enhancement
+	} else {
+		if tracker != nil && sessionID != "" {
+			tracker.UpdateProgress(sessionID, "finalizing", "Finalizing output...", 90, "", 0)
+		}
+		// Copy final file to output
 		err = as.copyFile(finalFile, as.OutputFile)
 		if err != nil {
 			return fmt.Errorf("failed to copy final file: %v", err)
 		}
+	}
+
+	// Step 5: Complete
+	if tracker != nil && sessionID != "" {
+		tracker.UpdateProgress(sessionID, "completed", "Audio processing completed!", 100, "", 0)
 	}
 
 	return nil
@@ -153,6 +195,10 @@ func (as *AudioSequencer) concatenateWithCrossfade(outputFile string) error {
 			"-i", nextFile,
 			"-filter_complex",
 			fmt.Sprintf("[0][1]acrossfade=d=%.1f:c1=tri:c2=tri", as.CrossfadeDuration),
+			"-metadata", "artist=e.bitzy.id",
+			"-metadata", "author=e.bitzy.id",
+			"-metadata", "composer=e.bitzy.id",
+			"-metadata", "comment=Mixed with MixLoop by BITZY.ID",
 			"-acodec", "libmp3lame",
 			"-y", tempOutput)
 		
@@ -194,13 +240,18 @@ func (as *AudioSequencer) createLoopedSequence(sequenceFile string) error {
 
 	if as.LoopCount == 2 {
 		// Simple case: two loops with crossfade
+		loopedFile := filepath.Join(as.TempDir, "looped.mp3")
 		cmd := exec.Command("ffmpeg",
 			"-i", sequenceFile,
 			"-i", sequenceFile,
 			"-filter_complex",
 			fmt.Sprintf("[0][1]acrossfade=d=%.1f:c1=tri:c2=tri", crossfade),
+			"-metadata", "artist=e.bitzy.id",
+			"-metadata", "author=e.bitzy.id",
+			"-metadata", "composer=e.bitzy.id",
+			"-metadata", "comment=Mixed with MixLoop by BITZY.ID",
 			"-acodec", "libmp3lame",
-			"-y", as.OutputFile)
+			"-y", loopedFile)
 		
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -210,11 +261,16 @@ func (as *AudioSequencer) createLoopedSequence(sequenceFile string) error {
 	}
 
 	// Multiple loops: create chain of crossfades
-	return as.createMultipleLoops(sequenceFile, crossfade)
+	loopedFile := filepath.Join(as.TempDir, "looped.mp3")
+	err = as.createMultipleLoops(sequenceFile, crossfade, loopedFile)
+	if err != nil {
+		return err
+	}
+	return as.copyFile(loopedFile, as.OutputFile)
 }
 
 // createMultipleLoops handles more than 2 loops with crossfades
-func (as *AudioSequencer) createMultipleLoops(sequenceFile string, crossfade float64) error {
+func (as *AudioSequencer) createMultipleLoops(sequenceFile string, crossfade float64, outputFile string) error {
 	// Create temporary copies for each loop
 	var tempFiles []string
 	var inputs []string
@@ -247,9 +303,14 @@ func (as *AudioSequencer) createMultipleLoops(sequenceFile string, crossfade flo
 
 	filterComplex := strings.Join(filterParts, ";")
 
-	// Execute FFmpeg command
+	// Execute FFmpeg command with metadata
 	args := inputs
-	args = append(args, "-filter_complex", filterComplex, "-acodec", "libmp3lame", "-y", as.OutputFile)
+	args = append(args, "-filter_complex", filterComplex)
+	args = append(args, "-metadata", "artist=e.bitzy.id")
+	args = append(args, "-metadata", "author=e.bitzy.id")
+	args = append(args, "-metadata", "composer=e.bitzy.id")
+	args = append(args, "-metadata", "comment=Mixed with MixLoop by BITZY.ID")
+	args = append(args, "-acodec", "libmp3lame", "-y", outputFile)
 
 	cmd := exec.Command("ffmpeg", args...)
 	output, err := cmd.CombinedOutput()
@@ -264,6 +325,12 @@ func (as *AudioSequencer) createMultipleLoops(sequenceFile string, crossfade flo
 func (as *AudioSequencer) copyFile(src, dst string) error {
 	var args []string
 	args = append(args, "-i", src)
+	
+	// Apply Dolby Stereo simulation if enabled
+	if as.DolbyStereo {
+		args = append(args, "-af", "stereotools=mlev=1.2")
+		args = append(args, "-ac", "2") // Force stereo output
+	}
 	
 	if as.OutputFormat == "wav" {
 		args = append(args, "-c:a", as.Quality, "-ar", "48000")

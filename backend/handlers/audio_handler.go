@@ -25,6 +25,7 @@ func MixAudioHandler(w http.ResponseWriter, r *http.Request) {
 	loopsStr := r.FormValue("loops")
 	crossfadeStr := r.FormValue("crossfade")
 	enhanceStr := r.FormValue("enhance")
+	dolbyStereoStr := r.FormValue("dolby_stereo")
 	formatStr := r.FormValue("format")
 
 	loops := 1
@@ -46,13 +47,18 @@ func MixAudioHandler(w http.ResponseWriter, r *http.Request) {
 		enhance = enhanceStr == "true"
 	}
 
+	dolbyStereo := false // Default to false
+	if dolbyStereoStr != "" {
+		dolbyStereo = dolbyStereoStr == "true"
+	}
+
 	format := "mp3" // Default format
 	if formatStr == "wav" {
 		format = "wav"
 	}
 
 	// Get uploaded files
-	files := r.MultipartForm.File["audio"]
+	files := r.MultipartForm.File["audio_files"]
 	if len(files) == 0 {
 		http.Error(w, "No audio files provided", http.StatusBadRequest)
 		return
@@ -76,9 +82,9 @@ func MixAudioHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Save file to disk
 		filename := fmt.Sprintf("input_%d%s", i, filepath.Ext(fileHeader.Filename))
-		filepath := filepath.Join(sessionDir, filename)
+		filePath := filepath.Join(sessionDir, filename)
 		
-		dst, err := os.Create(filepath)
+		dst, err := os.Create(filePath)
 		if err != nil {
 			http.Error(w, "Failed to save file", http.StatusInternalServerError)
 			return
@@ -91,7 +97,7 @@ func MixAudioHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		savedFiles = append(savedFiles, filepath)
+		savedFiles = append(savedFiles, filePath)
 	}
 
 	// Generate output filename with proper extension
@@ -102,9 +108,22 @@ func MixAudioHandler(w http.ResponseWriter, r *http.Request) {
 		outputFile = filepath.Join("output", fmt.Sprintf("mix_%s.mp3", sessionID))
 	}
 
-	// Process audio with enhancement options
-	err = utils.ProcessAudioWithOptions(savedFiles, outputFile, loops, crossfade, enhance, format)
+	// Use existing session ID for progress tracking
+	
+	// Choose processing method based on file count
+	if len(savedFiles) > 20 {
+		// Use batch processor for large sets
+		batchProcessor := utils.NewBatchProcessor(sessionDir)
+		batchProcessor.OptimizeForLargeFiles(len(savedFiles))
+		err = batchProcessor.ProcessLargeAudioSetWithStereo(savedFiles, outputFile, loops, crossfade, enhance, dolbyStereo, format, sessionID)
+	} else {
+		// Use regular processing for smaller sets
+		manager := utils.NewAudioManager(sessionDir)
+		err = manager.ProcessAudioSequenceWithProgressAndStereo(savedFiles, outputFile, loops, crossfade, enhance, dolbyStereo, format, sessionID)
+	}
+	
 	if err != nil {
+		fmt.Printf("Audio processing error: %v\n", err)
 		http.Error(w, fmt.Sprintf("Failed to process audio: %v", err), http.StatusInternalServerError)
 		return
 	}

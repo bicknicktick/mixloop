@@ -29,24 +29,36 @@ func (am *AudioManager) ProcessAudioSequence(inputFiles []string, outputFile str
 
 // ProcessAudioSequenceWithOptions handles audio processing with enhancement and format options
 func (am *AudioManager) ProcessAudioSequenceWithOptions(inputFiles []string, outputFile string, loops int, crossfadeDuration float64, enhance bool, format string) error {
+	return am.ProcessAudioSequenceWithProgress(inputFiles, outputFile, loops, crossfadeDuration, enhance, format, "")
+}
+
+// ProcessAudioSequenceWithProgress handles audio processing with progress tracking
+func (am *AudioManager) ProcessAudioSequenceWithProgress(inputFiles []string, outputFile string, loops int, crossfadeDuration float64, enhance bool, format, sessionID string) error {
+	return am.ProcessAudioSequenceWithProgressAndStereo(inputFiles, outputFile, loops, crossfadeDuration, enhance, false, format, sessionID)
+}
+
+// ProcessAudioSequenceWithProgressAndStereo handles audio processing with progress tracking and stereo options
+func (am *AudioManager) ProcessAudioSequenceWithProgressAndStereo(inputFiles []string, outputFile string, loops int, crossfadeDuration float64, enhance bool, dolbyStereo bool, format, sessionID string) error {
 	// Step 1: Validate all input files
 	if err := am.Validator.ValidateFiles(inputFiles); err != nil {
 		return fmt.Errorf("validation failed: %v", err)
 	}
 
 	// Step 2: Create unique session directory
-	sessionID := fmt.Sprintf("%d", time.Now().UnixNano())
+	if sessionID == "" {
+		sessionID = fmt.Sprintf("%d", time.Now().UnixNano())
+	}
 	sessionDir := filepath.Join(am.TempDir, sessionID)
 	if err := os.MkdirAll(sessionDir, 0755); err != nil {
 		return fmt.Errorf("failed to create session directory: %v", err)
 	}
 	defer os.RemoveAll(sessionDir)
 
-	// Step 3: Initialize sequencer with options
-	am.Sequencer = NewAudioSequencerWithOptions(inputFiles, outputFile, crossfadeDuration, loops, sessionDir, enhance, format)
+	// Step 3: Initialize sequencer with options including stereo
+	am.Sequencer = NewAudioSequencerWithStereoOptions(inputFiles, outputFile, crossfadeDuration, loops, sessionDir, enhance, dolbyStereo, format)
 
-	// Step 4: Process the sequence
-	if err := am.Sequencer.Process(); err != nil {
+	// Step 4: Process the sequence with progress tracking
+	if err := am.Sequencer.ProcessWithProgress(sessionID, GlobalProgressTracker); err != nil {
 		return fmt.Errorf("sequencing failed: %v", err)
 	}
 

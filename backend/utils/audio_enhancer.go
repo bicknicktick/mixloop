@@ -29,6 +29,12 @@ func (ae *AudioEnhancer) ApplyEnhancement(inputFile, outputFile string, outputFo
 	args = append(args, "-i", inputFile)
 	args = append(args, "-af", filterChain)
 	
+	// Add metadata
+	args = append(args, "-metadata", "artist=e.bitzy.id")
+	args = append(args, "-metadata", "author=e.bitzy.id")
+	args = append(args, "-metadata", "composer=e.bitzy.id")
+	args = append(args, "-metadata", "comment=Mixed with MixLoop by BITZY.ID")
+	
 	if outputFormat == "wav" {
 		args = append(args, "-c:a", quality, "-ar", "48000")
 	} else {
