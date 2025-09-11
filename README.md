@@ -1,5 +1,7 @@
 <div align="center">
-
+         
+[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/bitzyid)
+         
 # 🎵 MixLoop
 ### *Professional Audio Sequence Mixer*
 
