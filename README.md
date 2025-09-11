@@ -27,6 +27,7 @@
 ## 💝 Support the Project
 
 If you find this project helpful, consider supporting its development:
+
 [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/bitzyid)
 
 [![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/bitzyid)
