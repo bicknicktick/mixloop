@@ -23,6 +23,7 @@
 </div>
 
 ---
+<div align="center">
 ## 💝 Support the Project
 
 If you find this project helpful, consider supporting its development:
@@ -30,6 +31,7 @@ If you find this project helpful, consider supporting its development:
 [![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/bitzyid)
 
 Your support helps maintain and improve this project! 🚀
+</div>
 
 ## ✨ **Advanced Features**
 
